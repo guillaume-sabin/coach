@@ -1,0 +1,115 @@
+# CI : logique Swift sur Linux (rapide, gratuit), API TypeScript, puis app iOS complète sur macOS
+# (compilation, tests, captures du simulateur). Aucun compte Apple Developer requis pour le simulateur.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-core:
+    name: CoachCore (Swift, Linux)
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tests CoachCore
+        working-directory: apps/ios/CoachCore
+        run: swift test --parallel
+
+  api:
+    name: API (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Fumée API avec les échantillons
+        working-directory: apps/api
+        run: |
+          cp .env.example .env
+          sed -i 's/INGEST_API_KEY=change-me/INGEST_API_KEY=ci-key/' .env
+          npx tsx src/import/cli.ts ../../_context/samples/export.xml
+          npx tsx src/server.ts & sleep 3
+          curl -sf http://localhost:3210/health
+          curl -sf -X POST http://localhost:3210/ingest/health-auto-export -H "x-api-key: ci-key" -H "content-type: application/json" --data-binary @../../_context/samples/hae-sample.json
+          curl -sf -X POST http://localhost:3210/ingest/app -H "x-api-key: ci-key" -H "content-type: application/json" --data-binary @../../_context/samples/ios-app-sample.json
+          curl -sf http://localhost:3210/stats
+
+  ios:
+    name: App iOS (macOS, simulateur)
+    runs-on: macos-15
+    needs: swift-core
+    timeout-minutes: 40
+    env:
+      SCHEME: Coach
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sélectionner Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Installer XcodeGen
+        run: brew install xcodegen xcbeautify
+
+      - name: Générer le projet
+        working-directory: apps/ios
+        run: xcodegen generate
+
+      - name: Choisir un simulateur iPhone disponible
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          cands=[dev for rt,devs in d.items() if "iOS" in rt for dev in devs if dev["name"].startswith("iPhone")]
+          cands.sort(key=lambda x:x["name"])
+          print(cands[-1]["udid"])')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+
+      - name: Compiler pour le simulateur
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Coach.xcodeproj -scheme "$SCHEME" \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+            | tee build.log | xcbeautify --renderer github-actions || (tail -80 build.log; exit 1)
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Installer, lancer et capturer
+        working-directory: apps/ios
+        run: |
+          UDID=${{ steps.sim.outputs.udid }}
+          APP=$(find build/Build/Products -name "Coach.app" -path "*iphonesimulator*" | head -1)
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" com.guillaume.coach
+          sleep 6
+          mkdir -p screenshots
+          xcrun simctl io "$UDID" screenshot screenshots/01-seances.png
+          # Onglets Récupération et Réglages via l'accessibilité n'est pas scriptable sans XCUITest :
+          # on capture l'écran d'accueil ; les autres écrans viendront avec les tests UI.
+
+      - name: Publier captures et journal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator
+          path: |
+            apps/ios/screenshots
+            apps/ios/build.log
+          if-no-files-found: warn

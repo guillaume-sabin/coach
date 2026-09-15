@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.expo/
+*.db
+*.db-journal
+.env
+data/
+
+# Swift
+.build/
+*.xcodeproj
+*.xcworkspace
+DerivedData/

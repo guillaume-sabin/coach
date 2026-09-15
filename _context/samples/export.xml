@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HealthData [
+<!ELEMENT HealthData (ExportDate,Me,(Record|Workout)*)>
+]>
+<HealthData locale="fr_FR">
+ <ExportDate value="2026-09-15 10:00:00 +0200"/>
+ <Me HKCharacteristicTypeIdentifierDateOfBirth="1985-01-01"/>
+ <Record type="HKQuantityTypeIdentifierHeartRateVariabilitySDNN" sourceName="Apple Watch de Guillaume" unit="ms" startDate="2026-09-10 05:12:00 +0200" endDate="2026-09-10 05:13:00 +0200" value="55.2"/>
+ <Record type="HKQuantityTypeIdentifierRestingHeartRate" sourceName="Apple Watch de Guillaume" unit="count/min" startDate="2026-09-10 00:00:00 +0200" endDate="2026-09-10 23:59:00 +0200" value="47"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="Apple Watch de Guillaume" unit="count" startDate="2026-09-10 08:00:00 +0200" endDate="2026-09-10 09:00:00 +0200" value="3000"/>
+ <Record type="HKQuantityTypeIdentifierStepCount" sourceName="iPhone" unit="count" startDate="2026-09-10 08:00:00 +0200" endDate="2026-09-10 09:00:00 +0200" value="2800"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch de Guillaume" startDate="2026-09-09 23:10:00 +0200" endDate="2026-09-10 03:00:00 +0200" value="HKCategoryValueSleepAnalysisAsleepCore"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="Apple Watch de Guillaume" startDate="2026-09-10 03:00:00 +0200" endDate="2026-09-10 06:40:00 +0200" value="HKCategoryValueSleepAnalysisAsleepDeep"/>
+ <Record type="HKCategoryTypeIdentifierSleepAnalysis" sourceName="iPhone" startDate="2026-09-09 23:00:00 +0200" endDate="2026-09-10 07:00:00 +0200" value="HKCategoryValueSleepAnalysisInBed"/>
+ <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="52.48" durationUnit="min" sourceName="Apple Watch de Guillaume" startDate="2026-09-10 07:00:00 +0200" endDate="2026-09-10 07:52:29 +0200">
+  <MetadataEntry key="HKElevationAscended" value="12300 cm"/>
+  <MetadataEntry key="HKIndoorWorkout" value="0"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierDistanceWalkingRunning" startDate="2026-09-10 07:00:00 +0200" endDate="2026-09-10 07:52:29 +0200" sum="9.87" unit="km"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierActiveEnergyBurned" startDate="2026-09-10 07:00:00 +0200" endDate="2026-09-10 07:52:29 +0200" sum="640" unit="kcal"/>
+  <WorkoutStatistics type="HKQuantityTypeIdentifierHeartRate" startDate="2026-09-10 07:00:00 +0200" endDate="2026-09-10 07:52:29 +0200" average="149" minimum="98" maximum="171" unit="count/min"/>
+  <WorkoutRoute sourceName="Apple Watch de Guillaume" startDate="2026-09-10 07:00:00 +0200" endDate="2026-09-10 07:52:29 +0200">
+   <FileReference path="/workout-routes/route_2026-09-10_7.52am.gpx"/>
+  </WorkoutRoute>
+ </Workout>
+ <Workout workoutActivityType="HKWorkoutActivityTypeRunning" duration="52.48" durationUnit="min" sourceName="Apple Watch de Guillaume" startDate="2026-09-13 07:02:11 +0200" endDate="2026-09-13 07:58:40 +0200">
+  <WorkoutStatistics type="HKQuantityTypeIdentifierHeartRate" average="152" maximum="176" unit="count/min"/>
+ </Workout>
+</HealthData>

@@ -1,0 +1,16 @@
+{"data":{"workouts":[
+ {"name":"Outdoor Run","start":"2026-09-13 07:02:11 +0200","end":"2026-09-13 07:58:40 +0200","duration":3389,
+  "distance":{"qty":10.42,"units":"km"},"activeEnergyBurned":{"qty":712,"units":"kcal"},
+  "elevationUp":{"qty":86,"units":"m"},"avgHeartRate":{"qty":152,"units":"bpm"},"maxHeartRate":{"qty":176,"units":"bpm"},"id":"A1"},
+ {"name":"Outdoor Run","start":"2026-09-14 09:10:00 +0200","end":"2026-09-14 11:45:30 +0200","duration":9330,
+  "distance":{"qty":18.3,"units":"km"},"elevationUp":{"qty":940,"units":"m"},"elevationDown":{"qty":915,"units":"m"},
+  "avgHeartRate":{"qty":141,"units":"bpm"},"id":"A2"},
+ {"name":"Hiking","start":"2026-09-12 14:00:00 +0200","end":"2026-09-12 16:30:00 +0200","duration":9000,
+  "distance":{"qty":8.1,"units":"km"},"elevationUp":{"qty":520,"units":"m"},"id":"A3"}
+],"metrics":[
+ {"name":"heart_rate_variability","units":"ms","data":[{"date":"2026-09-13 06:30:00 +0200","qty":48},{"date":"2026-09-14 06:20:00 +0200","qty":41}]},
+ {"name":"resting_heart_rate","units":"bpm","data":[{"date":"2026-09-13 00:00:00 +0200","qty":49},{"date":"2026-09-14 00:00:00 +0200","qty":52}]},
+ {"name":"sleep_analysis","units":"hr","data":[{"date":"2026-09-13 06:15:00 +0200","asleep":7.2,"inBed":7.8,"sleepEnd":"2026-09-13 06:15:00 +0200"}]},
+ {"name":"step_count","units":"count","data":[{"date":"2026-09-13 00:00:00 +0200","qty":14210}]},
+ {"name":"vo2_max","units":"mL/min·kg","data":[{"date":"2026-09-13 08:00:00 +0200","qty":51.3}]}
+]}}

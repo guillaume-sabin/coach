@@ -1,0 +1,35 @@
+{
+  "workouts": [
+    {
+      "source": "ios_app",
+      "sourceId": "0B3C1F7A-1111-2222-3333-444455556666",
+      "sport": "running",
+      "activityType": "HKWorkoutActivityTypeRunning",
+      "startedAt": "2026-09-15T17:05:12Z",
+      "endedAt": "2026-09-15T17:58:40Z",
+      "durationSec": 3208,
+      "distanceM": 10120,
+      "ascentM": 94,
+      "descentM": 90,
+      "avgHr": 146,
+      "maxHr": 171,
+      "energyKcal": 690,
+      "avgPaceSecPerKm": null,
+      "deviceName": "Apple Watch de Guillaume"
+    },
+    {
+      "source": "ios_app",
+      "sourceId": null,
+      "sport": "mobility",
+      "activityType": "HKWorkoutActivityTypeCooldown",
+      "startedAt": "2026-09-15T18:30:00Z",
+      "endedAt": "2026-09-15T18:49:00Z",
+      "durationSec": 1140,
+      "avgHr": 81,
+      "deviceName": "Apple Watch de Guillaume"
+    }
+  ],
+  "metrics": [
+    { "date": "2026-09-15", "hrvMs": 104, "restingHr": 41, "sleepMinutes": 466, "steps": 9210 }
+  ]
+}

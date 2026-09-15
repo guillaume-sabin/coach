@@ -1,0 +1,11 @@
+{
+  "name": "coach",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "api": "npm run dev -w @coach/api",
+    "web": "npm run web -w @coach/mobile",
+    "db:push": "npm run db:push -w @coach/api",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}

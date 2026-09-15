@@ -1,0 +1,51 @@
+# Projet Xcode généré par XcodeGen : `brew install xcodegen && xcodegen generate` dans ce dossier.
+name: Coach
+options:
+  bundleIdPrefix: com.guillaume
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: ""          # à renseigner (compte Apple Developer)
+    CODE_SIGN_STYLE: Automatic
+packages:
+  CoachCore:
+    path: CoachCore
+targets:
+  Coach:
+    type: application
+    platform: iOS
+    sources:
+      - path: Coach
+    dependencies:
+      - package: CoachCore
+    entitlements:
+      path: Coach/Resources/Coach.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.background-delivery: true
+    info:
+      path: Coach/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Coach
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSHealthShareUsageDescription: "Coach lit vos séances, votre fréquence cardiaque, votre HRV, votre sommeil et votre VO₂max pour suivre votre charge d'entraînement et adapter votre planning."
+        NSHealthUpdateUsageDescription: "Coach n'écrit aucune donnée dans Santé."
+        UIBackgroundModes: [fetch, processing]
+        BGTaskSchedulerPermittedIdentifiers: [com.guillaume.coach.sync]
+        NSAppTransportSecurity:
+          # L'API tourne en HTTP sur le réseau local pendant le développement.
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.guillaume.coach
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+# Les tests unitaires vivent dans le paquet CoachCore (`swift test`), exécutables sans Xcode.
