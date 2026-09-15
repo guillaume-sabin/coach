@@ -1,5 +1,5 @@
 # CI : logique Swift sur Linux (rapide, gratuit), API TypeScript, puis app iOS complète sur macOS
-# (compilation, tests, captures du simulateur). Aucun compte Apple Developer requis pour le simulateur.
+# (compilation, lancement dans le simulateur, capture). Aucun compte Apple Developer requis pour le simulateur.
 name: CI
 
 on:
@@ -56,27 +56,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sélectionner Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app || sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+      # On garde le Xcode par défaut du runner : c'est le seul dont la plateforme iOS Simulator est installée.
+      - name: Xcode et runtimes du runner
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes available | grep -i ios || true
 
-      - name: Installer XcodeGen
+      - name: Installer XcodeGen et xcbeautify
         run: brew install xcodegen xcbeautify
 
       - name: Générer le projet
         working-directory: apps/ios
         run: xcodegen generate
-
-      - name: Choisir un simulateur iPhone disponible
-        id: sim
-        run: |
-          UDID=$(xcrun simctl list devices available -j | python3 -c '
-          import json,sys
-          d=json.load(sys.stdin)["devices"]
-          cands=[dev for rt,devs in d.items() if "iOS" in rt for dev in devs if dev["name"].startswith("iPhone")]
-          cands.sort(key=lambda x:x["name"])
-          print(cands[-1]["udid"])')
-          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
-          xcrun simctl boot "$UDID" || true
 
       - name: Compiler pour le simulateur
         working-directory: apps/ios
@@ -84,25 +75,31 @@ jobs:
           set -o pipefail
           xcodebuild build \
             -project Coach.xcodeproj -scheme "$SCHEME" \
-            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
-            | tee build.log | xcbeautify --renderer github-actions || (tail -80 build.log; exit 1)
+            | tee build.log | xcbeautify --renderer github-actions || (grep -E "error:" build.log | sort -u | head -60; exit 1)
         env:
           NSUnbufferedIO: "YES"
 
-      - name: Installer, lancer et capturer
+      - name: Lancer dans un simulateur iPhone et capturer
         working-directory: apps/ios
         run: |
-          UDID=${{ steps.sim.outputs.udid }}
+          # Un iPhone disponible pour le runtime iOS livré avec ce Xcode (pas de nom d'appareil codé en dur)
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          c=[dev for rt,devs in d.items() if "iOS" in rt for dev in devs if dev["name"].startswith("iPhone")]
+          c.sort(key=lambda x:x["name"]); print(c[-1]["udid"])')
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
           APP=$(find build/Build/Products -name "Coach.app" -path "*iphonesimulator*" | head -1)
           xcrun simctl install "$UDID" "$APP"
           xcrun simctl launch "$UDID" com.guillaume.coach
-          sleep 6
+          sleep 8
           mkdir -p screenshots
           xcrun simctl io "$UDID" screenshot screenshots/01-seances.png
-          # Onglets Récupération et Réglages via l'accessibilité n'est pas scriptable sans XCUITest :
-          # on capture l'écran d'accueil ; les autres écrans viendront avec les tests UI.
+          # Les autres onglets nécessitent des tests XCUITest pour être pilotés ; à venir.
 
       - name: Publier captures et journal
         if: always()
