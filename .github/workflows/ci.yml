@@ -105,7 +105,7 @@ jobs:
           test "$(echo "$STATS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["workouts"]["total"])')" = "7"
 
   ios:
-    name: App iOS (macOS, simulateur) : tests unitaires + XCUITest
+    name: "App iOS (macOS, simulateur) : tests unitaires + XCUITest"
     runs-on: macos-15
     timeout-minutes: 45
     env:
