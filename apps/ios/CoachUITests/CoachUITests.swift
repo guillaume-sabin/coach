@@ -21,17 +21,20 @@ final class CoachUITests: XCTestCase {
 
     func testWorkoutsListAndDetail() {
         XCTAssertTrue(app.navigationBars["Séances"].waitForExistence(timeout: 15), "l'onglet Séances doit s'afficher au lancement")
-        XCTAssertTrue(app.staticTexts["Toutes les séances"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.cells.firstMatch.waitForExistence(timeout: 10), "la liste contient des lignes")
         capture("01-seances")
 
-        let row = app.cells.matching(NSPredicate(format: "label CONTAINS[c] 'Course à pied' OR label CONTAINS[c] 'Trail'")).firstMatch
+        // Les lignes combinent leurs textes en un seul élément d'accessibilité ; on cherche dans les descendants.
+        let runPredicate = NSPredicate(format: "label CONTAINS[c] 'Course à pied' OR label CONTAINS[c] 'Trail'")
+        let row = app.cells.containing(runPredicate).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5), "au moins une séance de course dans les données de démonstration")
         row.tap()
 
-        let back = app.navigationBars.buttons["Séances"]
-        XCTAssertTrue(back.waitForExistence(timeout: 5), "le détail est poussé dans la pile de navigation")
+        // Le détail prend le nom du sport comme titre ; le bouton retour est le premier bouton de la barre.
+        let detailBar = app.navigationBars.matching(NSPredicate(format: "identifier == 'Course à pied' OR identifier == 'Trail'")).firstMatch
+        XCTAssertTrue(detailBar.waitForExistence(timeout: 5), "le détail est poussé dans la pile de navigation")
         capture("02-detail")
-        back.tap()
+        detailBar.buttons.firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Séances"].waitForExistence(timeout: 5))
     }
 

@@ -101,8 +101,8 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3210/ingest/app -d '{}')" = "401"
           STATS=$(curl -sf http://localhost:3210/stats)
           echo "$STATS"
-          # 2 (XML) + 3 (HAE) + 2 (app) séances, aucune ne se recoupe.
-          test "$(echo "$STATS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["workouts"]["total"])')" = "7"
+          # 2 (XML) + 3 (HAE) + 2 (app) séances, dont la course du 13/09 présente dans le XML et dans HAE au même instant : 6.
+          test "$(echo "$STATS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["workouts"]["total"])')" = "6"
 
   ios:
     name: "App iOS (macOS, simulateur) : tests unitaires + XCUITest"
@@ -167,6 +167,19 @@ jobs:
             || (grep -E "error:|failed|Test Case .* failed" test.log | sort -u | head -80; exit 1)
         env:
           NSUnbufferedIO: "YES"
+
+      - name: Détail des échecs
+        if: failure()
+        working-directory: apps/ios
+        run: |
+          # xcbeautify résume les tests ; le détail des expectations est dans le .xcresult.
+          xcrun xcresulttool get test-results summary --path build/Coach.xcresult 2>/dev/null | python3 -c '
+          import json,sys
+          s=json.load(sys.stdin)
+          for f in s.get("testFailures", []):
+              print("::error title=" + f.get("testName","?") + "::" + f.get("failureText","").replace("\n"," | ")[:900])
+          ' || true
+          grep -E "Expectation failed|Issue recorded|XCTAssert|error: -\[|Fatal error" -A 3 test.log | head -120 || true
 
       - name: Extraire les captures d'écran des tests d'interface
         if: always()

@@ -60,6 +60,8 @@ final class SyncEngine {
             fail(error)
             return
         }
+        // Sans ce retour à l'état calme, `refresh()` se croirait déjà occupé et la première synchro n'aurait jamais lieu.
+        phase = .idle
         await refresh()
     }
 
@@ -170,8 +172,10 @@ final class SyncEngine {
     private func pushPending() async throws {
         guard settings.syncEnabled else { return }
         let context = modelContainer.mainContext
-        let workouts = try context.fetch(FetchDescriptor<Workout>(predicate: #Predicate { $0.syncedAt == nil }))
-        let metrics = try context.fetch(FetchDescriptor<DailyMetric>(predicate: #Predicate { $0.syncedAt == nil }))
+        // Ordre chronologique explicite : SwiftData ne garantit pas l'ordre d'insertion, et des lots stables
+        // rendent les envois (et leurs journaux) reproductibles.
+        let workouts = try context.fetch(FetchDescriptor<Workout>(predicate: #Predicate { $0.syncedAt == nil }, sortBy: [SortDescriptor(\.startedAt)]))
+        let metrics = try context.fetch(FetchDescriptor<DailyMetric>(predicate: #Predicate { $0.syncedAt == nil }, sortBy: [SortDescriptor(\.day)]))
         pendingPush = workouts.count + metrics.count
         guard pendingPush > 0 else { return }
 
