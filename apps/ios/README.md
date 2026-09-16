@@ -26,9 +26,32 @@ winget install --id Swift.Toolchain --exact          # une fois (Visual Studio B
 powershell -File apps/ios/CoachCore/test.ps1        # configure SDKROOT et le PATH, puis swift test
 ```
 
+## Tests de l'app (CoachTests, CoachUITests)
+
+Deux cibles de test sont générées par XcodeGen à côté de l'app :
+
+- **CoachTests** (Swift Testing, `@testable import Coach`) : `SyncEngine` piloté par des doublures
+  (`MockHealthData`, `RecordingAPIClient`) sur un `ModelContainer` en mémoire et un `UserDefaults` dédié par test,
+  d'où des tests **parallélisables** (`parallelizable: true` dans le schéma) ; modèles SwiftData, `AppSettings`,
+  `WorkoutMapper`, données de démonstration.
+- **CoachUITests** (XCUITest) : l'app est lancée avec `--ui-testing` ; `LaunchMode` bascule alors sur les données
+  de démonstration sans HealthKit ni réseau. Les trois onglets, le détail et le filtre sont parcourus et capturés.
+
+L'app détecte aussi qu'elle héberge des tests unitaires (`LaunchMode.unitTests`) et ne démarre alors aucun service réel.
+
+```bash
+xcodegen generate
+xcodebuild test -project Coach.xcodeproj -scheme Coach -destination "platform=iOS Simulator,name=iPhone 16" \
+  -parallel-testing-enabled YES
+```
+
 ## Intégration continue
 
-`.github/workflows/ci.yml` exécute à chaque push : tests CoachCore sur Linux, typecheck et fumée de l'API, puis compilation de l'app complète sur un runner macOS avec lancement dans le simulateur iPhone et capture d'écran publiée en artefact. Aucun compte Apple Developer n'est nécessaire pour le simulateur.
+`.github/workflows/ci.yml` exécute à chaque push quatre jobs en parallèle : tests CoachCore sur Linux
+(`swift test --parallel`), tests TypeScript (Vitest, un worker par cœur), fumée bout en bout de l'API, puis sur un
+runner macOS : `build-for-testing` et `test-without-building` avec clones de simulateur pour CoachTests et parcours
+XCUITest. Les rapports JUnit sont publiés comme checks GitHub, les captures d'écran et le `.xcresult` comme artefacts.
+Aucun compte Apple Developer n'est nécessaire pour le simulateur.
 
 ## Installer sur votre iPhone sans Mac : TestFlight depuis la CI
 
@@ -83,7 +106,7 @@ open Coach.xcodeproj
 - Applique localement les règles de réconciliation (doublons Strava à moins de 3 min, routine mobilité/étirements) pour afficher la même chose que l'API hors connexion.
 - Pousse les nouveautés vers `POST /ingest/app` par lots ; livraison HealthKit en arrière-plan + rafraîchissement périodique.
 
-## Non vérifié
+## Vérification
 
-Ce code a été écrit sur Windows sans compilateur Swift. Attendez-vous à quelques erreurs de compilation
-à la première ouverture dans Xcode (signatures d'API, isolation d'acteur) ; la structure et la logique sont en place.
+L'app, CoachCore et les deux cibles de test sont compilés et exécutés par la CI sur macOS à chaque push ;
+CoachCore est en plus testé sur Linux et localement sur Windows.

@@ -44,7 +44,7 @@ function removeCrossSourceDuplicates(): number {
             SELECT 1 FROM workouts b
              WHERE b.id != workouts.id
                AND (b.device_name IS NULL OR b.device_name NOT IN (${placeholders}))
-               AND abs(julianday(b.started_at) - julianday(workouts.started_at)) * 86400 < ?
+               AND round(abs(julianday(b.started_at) - julianday(workouts.started_at)) * 86400, 3) < ?
           )`,
     )
     .run(...SECONDARY_DEVICES, ...SECONDARY_DEVICES, DUPLICATE_WINDOW_SEC);

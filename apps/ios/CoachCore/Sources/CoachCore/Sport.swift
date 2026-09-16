@@ -61,7 +61,8 @@ public enum SportClassifier {
 
     /// Mapping du type d'activité HealthKit (nom canonique `HKWorkoutActivityType…`) vers un sport.
     public static func sport(forActivityType name: String, distanceM: Double?, ascentM: Double?) -> Sport {
-        let t = name.replacingOccurrences(of: "HKWorkoutActivityType", with: "").lowercased()
+        // Sans espaces : « Cross Training » (Health Auto Export) et « CrossTraining » (HealthKit) se classent pareil.
+        let t = name.replacingOccurrences(of: "HKWorkoutActivityType", with: "").lowercased().replacingOccurrences(of: " ", with: "")
         let base: Sport
         if t.contains("trail") {
             base = .trailRunning

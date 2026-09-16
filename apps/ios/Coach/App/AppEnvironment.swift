@@ -12,11 +12,11 @@ final class AppEnvironment {
     let settings: AppSettings
     let sync: SyncEngine
 
-    init(health: any HealthDataProviding, api: any APIClient, settings: AppSettings, modelContainer: ModelContainer) {
+    init(health: any HealthDataProviding, api: any APIClient, settings: AppSettings, modelContainer: ModelContainer, defaults: UserDefaults = .standard) {
         self.health = health
         self.api = api
         self.settings = settings
-        self.sync = SyncEngine(health: health, api: api, settings: settings, modelContainer: modelContainer)
+        self.sync = SyncEngine(health: health, api: api, settings: settings, modelContainer: modelContainer, defaults: defaults)
     }
 
     static func live(modelContainer: ModelContainer) -> AppEnvironment {
@@ -29,13 +29,17 @@ final class AppEnvironment {
         )
     }
 
-    /// Environnement pour les previews et les tests : aucune dépendance système.
+    /// Environnement pour les previews et les tests d'interface : aucune dépendance système, aucun envoi réseau.
     static func preview(modelContainer: ModelContainer) -> AppEnvironment {
-        AppEnvironment(
+        let defaults = UserDefaults(suiteName: "preview") ?? .standard
+        let settings = AppSettings(defaults: defaults)
+        settings.syncEnabled = false
+        return AppEnvironment(
             health: PreviewHealthData(),
             api: NoOpAPIClient(),
-            settings: AppSettings(defaults: UserDefaults(suiteName: "preview") ?? .standard),
-            modelContainer: modelContainer
+            settings: settings,
+            modelContainer: modelContainer,
+            defaults: defaults
         )
     }
 }

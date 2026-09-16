@@ -26,8 +26,9 @@ struct RootView: View {
 
 #Preview {
     let container = PreviewData.container()
+    let env = AppEnvironment.preview(modelContainer: container)
     RootView()
-        .environment(AppEnvironment.preview(modelContainer: container))
-        .environment(AppEnvironment.preview(modelContainer: container).sync)
+        .environment(env)
+        .environment(env.sync)
         .modelContainer(container)
 }

@@ -26,17 +26,20 @@ final class SyncEngine {
     private let api: any APIClient
     private let settings: AppSettings
     private let modelContainer: ModelContainer
+    /// Stockage de l'ancre HealthKit ; injectable pour isoler les tests.
+    private let defaults: UserDefaults
     private let logger = Logger(subsystem: "com.guillaumesabin.coach", category: "sync")
     private var didBootstrap = false
 
     private let anchorKey = "sync.healthKitAnchor"
     private let metricsBackfillDays = 400
 
-    init(health: any HealthDataProviding, api: any APIClient, settings: AppSettings, modelContainer: ModelContainer) {
+    init(health: any HealthDataProviding, api: any APIClient, settings: AppSettings, modelContainer: ModelContainer, defaults: UserDefaults = .standard) {
         self.health = health
         self.api = api
         self.settings = settings
         self.modelContainer = modelContainer
+        self.defaults = defaults
     }
 
     /// Premier lancement de la scène : autorisation, observation en arrière-plan, synchro complète.
@@ -79,7 +82,7 @@ final class SyncEngine {
 
     /// Relit tout l'historique HealthKit (réinitialise l'ancre).
     func fullResync() async {
-        UserDefaults.standard.removeObject(forKey: anchorKey)
+        defaults.removeObject(forKey: anchorKey)
         phase = .idle
         await refresh()
     }
@@ -96,10 +99,10 @@ final class SyncEngine {
     // MARK: - Import
 
     private func importWorkouts() async throws {
-        let anchor = UserDefaults.standard.data(forKey: anchorKey)
+        let anchor = defaults.data(forKey: anchorKey)
         let (raw, newAnchor) = try await health.fetchWorkouts(since: anchor)
         guard !raw.isEmpty else {
-            if let newAnchor { UserDefaults.standard.set(newAnchor, forKey: anchorKey) }
+            if let newAnchor { defaults.set(newAnchor, forKey: anchorKey) }
             return
         }
         logger.info("HealthKit : \(raw.count) séances reçues")
@@ -131,7 +134,7 @@ final class SyncEngine {
             context.delete(w)
         }
         if context.hasChanges { try context.save() }
-        if let newAnchor { UserDefaults.standard.set(newAnchor, forKey: anchorKey) }
+        if let newAnchor { defaults.set(newAnchor, forKey: anchorKey) }
     }
 
     private func importMetrics() async throws {

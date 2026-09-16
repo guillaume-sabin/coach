@@ -48,4 +48,43 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.guillaumesabin.coach
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
-# Les tests unitaires vivent dans le paquet CoachCore (`swift test`), exécutables sans Xcode.
+    scheme:
+      # Les tests unitaires tournent en parallèle (clones de simulateur) ; les tests d'interface en série.
+      testTargets:
+        - name: CoachTests
+          parallelizable: true
+          randomExecutionOrder: true
+        - name: CoachUITests
+      gatherCoverageData: true
+      coverageTargets: [Coach]
+
+  # Tests unitaires de l'app (Swift Testing) : SyncEngine avec doublures, modèles SwiftData en mémoire, réglages.
+  # Hébergés par l'app, qui détecte ce contexte (LaunchMode) et ne démarre ni HealthKit ni le réseau.
+  CoachTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CoachTests
+    dependencies:
+      - target: Coach
+      - package: CoachCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.guillaumesabin.coach.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  # Parcours de fumée XCUITest : navigation entre les trois onglets, détail, filtre, captures d'écran.
+  CoachUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: CoachUITests
+    dependencies:
+      - target: Coach
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.guillaumesabin.coach.uitests
+        GENERATE_INFOPLIST_FILE: YES
+
+# La logique pure (classification, formats, contrat API) est testée dans le paquet CoachCore (`swift test`),
+# exécutable sans Xcode, y compris sur Windows et Linux.

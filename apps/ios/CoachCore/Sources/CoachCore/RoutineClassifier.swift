@@ -7,13 +7,19 @@ public enum RoutineClassifier {
     public static let duplicateWindow: TimeInterval = 180
 
     /// Supprime les doublons inter-sources en gardant la version montre (elle a la fréquence cardiaque).
+    /// Deux lectures de la même séance (même instant de début) sont fusionnées : la plus récente dans la
+    /// liste prime, ses champs absents sont complétés par l'autre. Le tri est stable : pour un même instant,
+    /// l'ordre d'entrée est conservé (passer les séances déjà connues avant les nouvelles).
     public static func dedupe(_ drafts: [WorkoutDraft]) -> [WorkoutDraft] {
         let sorted = drafts.sorted { $0.startedAt < $1.startedAt }
         var kept: [WorkoutDraft] = []
         for d in sorted {
             if let i = kept.lastIndex(where: { abs($0.startedAt.timeIntervalSince(d.startedAt)) < duplicateWindow }) {
                 let existing = kept[i]
-                if d.isFromWatch && !existing.isFromWatch {
+                if existing.startedAt == d.startedAt {
+                    let watchFirst = existing.isFromWatch && !d.isFromWatch
+                    kept[i] = watchFirst ? existing.filling(from: d) : d.filling(from: existing)
+                } else if d.isFromWatch && !existing.isFromWatch {
                     kept[i] = d
                 } else if !existing.isFromWatch && d.avgHr != nil && existing.avgHr == nil {
                     kept[i] = d
@@ -26,11 +32,12 @@ public enum RoutineClassifier {
     }
 
     /// La routine du soir : première séance "Cooldown" (ou "Other" tiers) du jour = mobilité, suivantes = étirements.
-    public static func classifyRoutine(_ drafts: [WorkoutDraft]) -> [WorkoutDraft] {
+    /// Le jour civil est découpé dans `timeZone` (fuseau de l'utilisateur par défaut ; explicite dans les tests).
+    public static func classifyRoutine(_ drafts: [WorkoutDraft], timeZone: TimeZone = DayKey.timeZone) -> [WorkoutDraft] {
         var rankByDay: [String: Int] = [:]
         return drafts.sorted { $0.startedAt < $1.startedAt }.map { d in
             guard isRoutineCandidate(d) else { return d }
-            let day = DayKey.key(for: d.startedAt)
+            let day = DayKey.key(for: d.startedAt, in: timeZone)
             let rank = (rankByDay[day] ?? 0) + 1
             rankByDay[day] = rank
             var out = d

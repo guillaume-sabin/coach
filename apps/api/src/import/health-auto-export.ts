@@ -48,7 +48,8 @@ export function parseWorkout(w: Obj): WorkoutInput | null {
   const dur = qty(first(w, ["duration"]));
   let durationSec = toSeconds(dur.qty, dur.unit ?? "s");
   const wall = secondsBetween(startedAt, endedAt);
-  // Si la durée déclarée est incohérente (ex : exprimée en minutes sans unité), on se rabat sur l'horloge.
+  // Une durée déclarée plus longue que l'horloge est incohérente : on se rabat sur l'horloge.
+  // Plus courte, elle est plausible (pauses pendant la séance) et conservée.
   if (!durationSec || durationSec <= 0 || durationSec > wall * 1.05 + 60) durationSec = wall;
 
   const dist = qty(first(w, ["distance", "totalDistance"]));

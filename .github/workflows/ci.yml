@@ -1,5 +1,9 @@
-# CI : logique Swift sur Linux (rapide, gratuit), API TypeScript, puis app iOS complète sur macOS
-# (compilation, lancement dans le simulateur, capture). Aucun compte Apple Developer requis pour le simulateur.
+# CI : quatre jobs indépendants qui tournent en parallèle, chacun exécutant ses tests en parallèle.
+#   swift-core  logique Swift pure (CoachCore) sur Linux : swift test --parallel
+#   typescript  shared + API + mobile avec Vitest (un worker par cœur, base SQLite en mémoire par fichier)
+#   api-smoke   l'API réelle démarrée et alimentée par les échantillons (bout en bout)
+#   ios         app iOS complète sur macOS : tests unitaires (clones de simulateur en parallèle) + XCUITest
+# Aucun compte Apple Developer n'est nécessaire pour le simulateur.
 name: CI
 
 on:
@@ -12,6 +16,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   swift-core:
     name: CoachCore (Swift, Linux)
@@ -19,12 +27,28 @@ jobs:
     container: swift:6.1
     steps:
       - uses: actions/checkout@v4
-      - name: Tests CoachCore
+      - name: Tests CoachCore en parallèle
         working-directory: apps/ios/CoachCore
-        run: swift test --parallel
+        run: |
+          mkdir -p reports
+          swift test --parallel --xunit-output reports/coachcore-junit.xml
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-coachcore
+          path: apps/ios/CoachCore/reports
+          if-no-files-found: warn
+      - name: Résumé des tests
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: Tests CoachCore
+          report_paths: apps/ios/CoachCore/reports/*.xml
+          require_tests: true
 
-  api:
-    name: API (TypeScript)
+  typescript:
+    name: shared + API + mobile (Vitest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +58,36 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - name: Fumée API avec les échantillons
+      - name: Tests unitaires et d'intégration (parallèles, couverture)
+        run: npm run test:ci
+      - name: Publier rapport et couverture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-typescript
+          path: |
+            reports
+            coverage/lcov.info
+          if-no-files-found: warn
+      - name: Résumé des tests
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: Tests TypeScript
+          report_paths: reports/*.xml
+          require_tests: true
+
+  api-smoke:
+    name: API bout en bout (échantillons)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Import XML puis ingestion HTTP réelle
         working-directory: apps/api
         run: |
           cp .env.example .env
@@ -44,13 +97,17 @@ jobs:
           curl -sf http://localhost:3210/health
           curl -sf -X POST http://localhost:3210/ingest/health-auto-export -H "x-api-key: ci-key" -H "content-type: application/json" --data-binary @../../_context/samples/hae-sample.json
           curl -sf -X POST http://localhost:3210/ingest/app -H "x-api-key: ci-key" -H "content-type: application/json" --data-binary @../../_context/samples/ios-app-sample.json
-          curl -sf http://localhost:3210/stats
+          # Sans clé : refusé. Avec la clé « change-me » : refusé aussi (voir requireKey).
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3210/ingest/app -d '{}')" = "401"
+          STATS=$(curl -sf http://localhost:3210/stats)
+          echo "$STATS"
+          # 2 (XML) + 3 (HAE) + 2 (app) séances, aucune ne se recoupe.
+          test "$(echo "$STATS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["workouts"]["total"])')" = "7"
 
   ios:
-    name: App iOS (macOS, simulateur)
+    name: App iOS (macOS, simulateur) : tests unitaires + XCUITest
     runs-on: macos-15
-    needs: swift-core
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       SCHEME: Coach
     steps:
@@ -69,44 +126,75 @@ jobs:
         working-directory: apps/ios
         run: xcodegen generate
 
-      - name: Compiler pour le simulateur
+      - name: Choisir un simulateur iPhone
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json,sys
+          d=json.load(sys.stdin)["devices"]
+          c=[dev for rt,devs in d.items() if "iOS" in rt for dev in devs if dev["name"].startswith("iPhone")]
+          c.sort(key=lambda x:x["name"]); print(c[-1]["udid"])')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Compiler l'app et les bundles de tests
         working-directory: apps/ios
         run: |
           set -o pipefail
-          xcodebuild build \
+          xcodebuild build-for-testing \
             -project Coach.xcodeproj -scheme "$SCHEME" \
-            -destination "generic/platform=iOS Simulator" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
             | tee build.log | xcbeautify --renderer github-actions || (grep -E "error:" build.log | sort -u | head -60; exit 1)
         env:
           NSUnbufferedIO: "YES"
 
-      - name: Lancer dans un simulateur iPhone et capturer
+      - name: Tests unitaires (parallèles) et tests d'interface
         working-directory: apps/ios
         run: |
-          # Un iPhone disponible pour le runtime iOS livré avec ce Xcode (pas de nom d'appareil codé en dur)
-          UDID=$(xcrun simctl list devices available -j | python3 -c '
-          import json,sys
-          d=json.load(sys.stdin)["devices"]
-          c=[dev for rt,devs in d.items() if "iOS" in rt for dev in devs if dev["name"].startswith("iPhone")]
-          c.sort(key=lambda x:x["name"]); print(c[-1]["udid"])')
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
-          APP=$(find build/Build/Products -name "Coach.app" -path "*iphonesimulator*" | head -1)
-          xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" com.guillaumesabin.coach
-          sleep 8
-          mkdir -p screenshots
-          xcrun simctl io "$UDID" screenshot screenshots/01-seances.png
-          # Les autres onglets nécessitent des tests XCUITest pour être pilotés ; à venir.
+          set -o pipefail
+          xcodebuild test-without-building \
+            -project Coach.xcodeproj -scheme "$SCHEME" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build \
+            -resultBundlePath build/Coach.xcresult \
+            -parallel-testing-enabled YES -parallel-testing-worker-count 2 \
+            -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" \
+            | tee test.log | xcbeautify --renderer github-actions --report junit --report-path build/reports \
+            || (grep -E "error:|failed|Test Case .* failed" test.log | sort -u | head -80; exit 1)
+        env:
+          NSUnbufferedIO: "YES"
 
-      - name: Publier captures et journal
+      - name: Extraire les captures d'écran des tests d'interface
+        if: always()
+        working-directory: apps/ios
+        run: |
+          mkdir -p screenshots
+          xcrun xcresulttool export attachments --path build/Coach.xcresult --output-path screenshots 2>/dev/null \
+            || xcrun xcresulttool export attachments --legacy --path build/Coach.xcresult --output-path screenshots 2>/dev/null \
+            || echo "pas de pièces jointes exportables"
+          ls -la screenshots || true
+
+      - name: Publier résultats, captures et journaux
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-simulator
+          name: ios-tests
           path: |
             apps/ios/screenshots
+            apps/ios/build/reports
+            apps/ios/build/Coach.xcresult
             apps/ios/build.log
+            apps/ios/test.log
           if-no-files-found: warn
+
+      - name: Résumé des tests
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: Tests iOS
+          report_paths: apps/ios/build/reports/*.xml
+          require_tests: false

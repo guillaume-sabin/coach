@@ -108,8 +108,10 @@ export function paceSecPerKm(distanceM: number | null, durationSec: number): num
 
 export function formatPace(secPerKm: number | null): string {
   if (!secPerKm || !isFinite(secPerKm)) return "–";
-  const m = Math.floor(secPerKm / 60);
-  const s = Math.round(secPerKm % 60);
+  // Arrondir le total avant de séparer minutes et secondes : sinon 359,6 s donnerait « 5:60 ».
+  const total = Math.round(secPerKm);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
   return `${m}:${s.toString().padStart(2, "0")} /km`;
 }
 

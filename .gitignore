@@ -11,3 +11,5 @@ data/
 *.xcodeproj
 *.xcworkspace
 DerivedData/
+reports/
+coverage/

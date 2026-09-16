@@ -69,6 +69,29 @@ Après chaque import ou ingestion (et via `npm run reconcile -w @coach/api`) :
 1. `npm run web`, puis ouvrir depuis Safari iPhone `http://<IP-du-PC>:8081/?api=http://<IP-du-PC>:3210`
 2. Partager → **Sur l'écran d'accueil**. L'URL de l'API est mémorisée et modifiable dans Réglages.
 
+## Tests
+
+Tout est parallélisé : Vitest lance un worker par cœur (l'API reçoit une base SQLite en mémoire par fichier de test),
+`swift test --parallel` pour CoachCore, clones de simulateur pour les tests unitaires iOS.
+
+```bash
+npm test                 # shared + API + mobile (Vitest) ; npm run test:watch pour itérer
+npm run test:coverage    # idem avec couverture (coverage/lcov.info)
+npm run test:swift       # CoachCore sur Windows (toolchain Swift winget)
+```
+
+| Couche | Outil | Ce qui est couvert |
+| --- | --- | --- |
+| `packages/shared` | Vitest | classification des sports (fixture partagée avec iOS), allure, formats, schémas zod |
+| `apps/api` | Vitest, SQLite `:memory:` | dates/unités Apple, parseurs XML et Health Auto Export sur les échantillons (non-régression), contrat `/ingest/app`, réconciliation (doublons Strava, routine par jour Paris), dépôt, routes HTTP via `app.request` |
+| `apps/mobile` | Vitest | formats, résolution de l'URL d'API (`?api=`, localStorage), client HTTP |
+| `apps/ios/CoachCore` | Swift Testing | routine, doublons, fusion de relectures, volume, `DayKey`, formats, contrat JSON, même fixture de sports que l'API |
+| `apps/ios` (CoachTests) | Swift Testing, SwiftData en mémoire | `SyncEngine` avec doublures HealthKit et API (import, reclassement, envoi par lots, échecs, ancre), modèles, réglages, correspondance HealthKit |
+| `apps/ios` (CoachUITests) | XCUITest | parcours des trois onglets, détail, filtre, captures d'écran en artefact |
+
+La fixture `_context/samples/sport-classification-cases.json` est lue par les tests TypeScript **et** Swift :
+toute divergence de classification entre l'API et l'app fait échouer la CI.
+
 ## Feuille de route
 
 - [x] Phase 1 : socle, ingestion, import, liste et détail des séances, récupération

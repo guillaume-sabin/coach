@@ -48,6 +48,22 @@ public struct WorkoutDraft: Sendable, Equatable, Codable {
     public var avgPaceSecPerKm: Double? {
         Pace.secondsPerKm(distanceM: distanceM, durationSec: durationSec)
     }
+
+    /// Copie de `self` dont les champs optionnels absents sont complétés depuis `other`.
+    /// Sert à fusionner deux lectures de la même séance sans perdre d'information.
+    public func filling(from other: WorkoutDraft) -> WorkoutDraft {
+        var out = self
+        out.healthKitUUID = healthKitUUID ?? other.healthKitUUID
+        out.distanceM = distanceM ?? other.distanceM
+        out.ascentM = ascentM ?? other.ascentM
+        out.descentM = descentM ?? other.descentM
+        out.avgHr = avgHr ?? other.avgHr
+        out.maxHr = maxHr ?? other.maxHr
+        out.energyKcal = energyKcal ?? other.energyKcal
+        out.sourceName = sourceName ?? other.sourceName
+        out.deviceName = deviceName ?? other.deviceName
+        return out
+    }
 }
 
 public enum Pace {
@@ -92,20 +108,22 @@ public enum DayKey {
     /// Fuseau utilisé pour découper les jours. Modifiable dans les tests pour des résultats déterministes.
     nonisolated(unsafe) public static var timeZone: TimeZone = .autoupdatingCurrent
 
-    public static var calendar: Calendar {
+    public static var calendar: Calendar { calendar(in: timeZone) }
+
+    public static func calendar(in timeZone: TimeZone) -> Calendar {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = timeZone
         return c
     }
 
-    public static func key(for date: Date) -> String {
-        let c = calendar.dateComponents([.year, .month, .day], from: date)
+    public static func key(for date: Date, in timeZone: TimeZone = DayKey.timeZone) -> String {
+        let c = calendar(in: timeZone).dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
-    public static func date(from key: String) -> Date? {
+    public static func date(from key: String, in timeZone: TimeZone = DayKey.timeZone) -> Date? {
         let parts = key.split(separator: "-").compactMap { Int($0) }
         guard parts.count == 3 else { return nil }
-        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
+        return calendar(in: timeZone).date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
 }
