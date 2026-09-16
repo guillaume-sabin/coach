@@ -26,7 +26,7 @@ final class SyncEngine {
     private let api: any APIClient
     private let settings: AppSettings
     private let modelContainer: ModelContainer
-    private let logger = Logger(subsystem: "com.guillaume.coach", category: "sync")
+    private let logger = Logger(subsystem: "com.guillaumesabin.coach", category: "sync")
     private var didBootstrap = false
 
     private let anchorKey = "sync.healthKitAnchor"

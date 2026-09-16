@@ -1,0 +1,99 @@
+# Signe l'app iOS et la téléverse sur TestFlight depuis un runner macOS, sans Mac ni certificat local :
+# la signature est gérée dans le cloud Apple via une clé d'API App Store Connect (rôle Admin).
+#
+# Secrets GitHub requis (Settings › Secrets and variables › Actions) :
+#   APPLE_TEAM_ID                 identifiant d'équipe (10 caractères), visible sur developer.apple.com/account
+#   APP_STORE_CONNECT_KEY_ID      identifiant de la clé d'API App Store Connect
+#   APP_STORE_CONNECT_ISSUER_ID   Issuer ID affiché au-dessus de la liste des clés
+#   APP_STORE_CONNECT_PRIVATE_KEY contenu complet du fichier AuthKey_XXXX.p8
+name: TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: Archive, signature cloud et envoi TestFlight
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      SCHEME: Coach
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier les secrets
+        run: |
+          for v in APPLE_TEAM_ID KEY_ID ISSUER_ID; do
+            [ -n "${!v}" ] || { echo "::error::Secret manquant : $v"; exit 1; }
+          done
+          [ -n "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" ] || { echo "::error::Secret manquant : APP_STORE_CONNECT_PRIVATE_KEY"; exit 1; }
+
+      - name: Installer la clé d'API App Store Connect
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${KEY_ID}.p8
+          echo "KEY_PATH=$HOME/private_keys/AuthKey_${KEY_ID}.p8" >> "$GITHUB_ENV"
+
+      - name: Installer XcodeGen et xcbeautify
+        run: brew install xcodegen xcbeautify
+
+      - name: Générer le projet
+        working-directory: apps/ios
+        run: |
+          xcodebuild -version
+          xcodegen generate
+          sed -i '' "s/__TEAM_ID__/${APPLE_TEAM_ID}/" ExportOptions.plist
+
+      - name: Archiver (signature automatique cloud)
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project Coach.xcodeproj -scheme "$SCHEME" \
+            -destination "generic/platform=iOS" \
+            -archivePath build/Coach.xcarchive \
+            -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            | tee archive.log | xcbeautify --renderer github-actions || (grep -E "error:" archive.log | sort -u | head -40; exit 1)
+        env:
+          NSUnbufferedIO: "YES"
+
+      - name: Exporter et téléverser vers App Store Connect
+        working-directory: apps/ios
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath build/Coach.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            | tee export.log | xcbeautify --renderer github-actions || (grep -E "error|Error" export.log | sort -u | head -40; exit 1)
+          echo "Build ${{ github.run_number }} envoyé. Apple le traite en 5 à 15 min, puis il apparaît dans TestFlight."
+
+      - name: Publier les journaux
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-logs
+          path: |
+            apps/ios/archive.log
+            apps/ios/export.log
+          if-no-files-found: warn

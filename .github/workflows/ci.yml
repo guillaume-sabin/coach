@@ -95,7 +95,7 @@ jobs:
           xcrun simctl bootstatus "$UDID" -b
           APP=$(find build/Build/Products -name "Coach.app" -path "*iphonesimulator*" | head -1)
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" com.guillaume.coach
+          xcrun simctl launch "$UDID" com.guillaumesabin.coach
           sleep 8
           mkdir -p screenshots
           xcrun simctl io "$UDID" screenshot screenshots/01-seances.png

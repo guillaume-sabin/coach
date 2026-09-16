@@ -5,7 +5,7 @@ import Foundation
 /// Rafraîchissement périodique en arrière-plan, en complément de la livraison HealthKit immédiate.
 /// Le système choisit l'instant réel ; on redemande un créneau après chaque exécution.
 enum BackgroundSync {
-    static let taskIdentifier = "com.guillaume.coach.sync"
+    static let taskIdentifier = "com.guillaumesabin.coach.sync"
 
     @MainActor
     static func register(environment: AppEnvironment) {

@@ -30,6 +30,39 @@ powershell -File apps/ios/CoachCore/test.ps1        # configure SDKROOT et le PA
 
 `.github/workflows/ci.yml` exécute à chaque push : tests CoachCore sur Linux, typecheck et fumée de l'API, puis compilation de l'app complète sur un runner macOS avec lancement dans le simulateur iPhone et capture d'écran publiée en artefact. Aucun compte Apple Developer n'est nécessaire pour le simulateur.
 
+## Installer sur votre iPhone sans Mac : TestFlight depuis la CI
+
+Le workflow `.github/workflows/testflight.yml` archive l'app sur un runner macOS, la signe avec la
+signature automatique cloud d'Apple et la téléverse sur App Store Connect. Vous l'installez ensuite via l'app TestFlight.
+Identifiant de bundle : `com.guillaumesabin.coach`.
+
+### À faire une seule fois dans App Store Connect
+
+1. **Accepter les accords** : appstoreconnect.apple.com › Accords, contrats et conditions. Sans cela, rien ne passe.
+2. **Créer l'identifiant d'app** : developer.apple.com/account › Identifiers › + › App IDs › App,
+   bundle ID explicite `com.guillaumesabin.coach`, capability **HealthKit** cochée.
+3. **Créer l'app** : appstoreconnect.apple.com › Apps › + › Nouvelle app › iOS, nom « Coach » (ou autre si pris),
+   bundle ID `com.guillaumesabin.coach`, SKU libre.
+4. **Créer une clé d'API** : Utilisateurs et accès › Intégrations › App Store Connect API › +,
+   rôle **Admin** (nécessaire à la signature cloud). Télécharger le fichier `AuthKey_XXXX.p8` (une seule fois possible),
+   noter le **Key ID** et l'**Issuer ID**.
+5. **Team ID** : developer.apple.com/account › Membership details, 10 caractères.
+
+### Secrets GitHub (dépôt › Settings › Secrets and variables › Actions)
+
+| Secret | Valeur |
+| --- | --- |
+| `APPLE_TEAM_ID` | Team ID |
+| `APP_STORE_CONNECT_KEY_ID` | Key ID |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID |
+| `APP_STORE_CONNECT_PRIVATE_KEY` | contenu complet du `.p8`, lignes BEGIN/END incluses |
+
+### Lancer
+
+Onglet Actions › TestFlight › Run workflow (ou pousser un tag `v0.1.0`). Après 5 à 15 min de traitement Apple,
+le build apparaît dans App Store Connect › TestFlight. Ajoutez-vous comme testeur interne, installez l'app
+**TestFlight** sur l'iPhone et acceptez l'invitation. Les builds internes ne passent pas par la revue Apple.
+
 ## Construire (nécessite un Mac avec Xcode 16+)
 
 ```bash
@@ -39,8 +72,8 @@ xcodegen generate
 open Coach.xcodeproj
 ```
 
-1. Dans le target **Coach** › Signing & Capabilities, choisir votre équipe (`DEVELOPMENT_TEAM` dans `project.yml`).
-2. HealthKit et Background Delivery sont déjà déclarés dans `Coach.entitlements` ; le compte Apple Developer doit avoir la capability HealthKit activée pour l'identifiant `com.guillaume.coach`.
+1. Exporter `APPLE_TEAM_ID` avant `xcodegen generate`, ou choisir l'équipe dans Signing & Capabilities.
+2. HealthKit et Background Delivery sont déjà déclarés dans `Coach.entitlements` ; le compte Apple Developer doit avoir la capability HealthKit activée pour l'identifiant `com.guillaumesabin.coach`.
 3. Lancer sur un **iPhone physique** : le simulateur n'a pas de données Santé réelles.
 4. Dans l'app, onglet Réglages : URL de l'API (adresse affichée par `npm run api`) et clé `INGEST_API_KEY`.
 
