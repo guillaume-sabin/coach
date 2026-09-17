@@ -2,6 +2,10 @@
 
 Application perso : séances Apple Watch Ultra + planning d'entraînement adaptatif par LLM local.
 
+## Documentation
+
+Vue d'ensemble, schéma d'architecture, règles métier, décisions et feuille de route : [docs/](docs/README.md).
+
 ## Structure
 
 ```
